@@ -45,6 +45,7 @@ export async function save(
     return { error: 'Unable to reach the database. Please try again.' };
   }
   revalidatePath('/transactions');
+  revalidatePath('/');
   redirect(returnUrl(form, id ? 'updated' : 'created'));
 }
 
@@ -62,5 +63,6 @@ export async function remove(
     return { error: 'Unable to reach the database. Please try again.' };
   }
   revalidatePath('/transactions');
+  revalidatePath('/');
   redirect(returnUrl(form, 'deleted'));
 }
