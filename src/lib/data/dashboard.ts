@@ -1,7 +1,11 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/supabase/user';
-import { calculateSummary, type DateRange } from '@/lib/finance/summary';
+import {
+  calculateSummary,
+  calculateTrends,
+  type DateRange,
+} from '@/lib/finance/summary';
 
 async function allRows<T extends { id: string }>(
   page: (after: string) => PromiseLike<{ data: T[] | null; error: unknown }>,
@@ -61,6 +65,7 @@ export async function getDashboard(range: DateRange) {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   return {
     ...summary,
+    trends: calculateTrends(accounts, transactions, range),
     hasAccounts: accounts.length > 0,
     accounts: summary.accountBalances.map((a) => ({
       ...a,

@@ -138,3 +138,88 @@ export function calculateSummary(
       ),
   };
 }
+
+export type TrendPoint = {
+  from: string;
+  to: string;
+  incomeCents: number;
+  expenseCents: number;
+  balanceCents: number;
+};
+
+export function calculateTrends(
+  accounts: readonly FinanceAccount[],
+  transactions: readonly FinanceTransaction[],
+  range: DateRange,
+) {
+  calculateSummary(accounts, transactions, range);
+  const days =
+    (new Date(`${range.to}T00:00:00Z`).getTime() -
+      new Date(`${range.from}T00:00:00Z`).getTime()) /
+      86400000 +
+    1;
+  const months =
+    (Number(range.to.slice(0, 4)) - Number(range.from.slice(0, 4))) * 12 +
+    Number(range.to.slice(5, 7)) -
+    Number(range.from.slice(5, 7)) +
+    1;
+  const interval = days <= 62 ? 'day' : months <= 24 ? 'month' : 'year';
+  const events = accounts.map((a) => ({
+    date: a.opening_date,
+    delta: cents(a.opening_balance_cents),
+    income: 0n,
+    expense: 0n,
+  }));
+  for (const t of transactions) {
+    if (t.kind === 'transfer') continue;
+    const amount = cents(t.amount_cents);
+    events.push({
+      date: t.transaction_date,
+      delta: t.kind === 'income' ? amount : -amount,
+      income: t.kind === 'income' ? amount : 0n,
+      expense: t.kind === 'expense' ? amount : 0n,
+    });
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date));
+  let index = 0;
+  let balance = 0n;
+  const points: TrendPoint[] = [];
+  let start = range.from;
+  while (start <= range.to) {
+    const next = new Date(`${start}T00:00:00Z`);
+    if (interval === 'day') next.setUTCDate(next.getUTCDate() + 1);
+    else if (interval === 'month') {
+      next.setUTCDate(1);
+      next.setUTCMonth(next.getUTCMonth() + 1);
+    } else {
+      next.setUTCMonth(0, 1);
+      next.setUTCFullYear(next.getUTCFullYear() + 1);
+    }
+    const endDate = new Date(next.getTime() - 86400000);
+    const end =
+      endDate.toISOString().slice(0, 10) > range.to
+        ? range.to
+        : endDate.toISOString().slice(0, 10);
+    let income = 0n;
+    let expense = 0n;
+    while (index < events.length && events[index]!.date <= end) {
+      const event = events[index++]!;
+      balance += event.delta;
+      // History before the first bucket carries the balance forward without entering its cash flow.
+      if (event.date >= start) {
+        income += event.income;
+        expense += event.expense;
+      }
+    }
+    points.push({
+      from: start,
+      to: end,
+      incomeCents: resultCents(income),
+      expenseCents: resultCents(expense),
+      balanceCents: resultCents(balance),
+    });
+    if (end === range.to) break;
+    start = next.toISOString().slice(0, 10);
+  }
+  return { interval, points };
+}

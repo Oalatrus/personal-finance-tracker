@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getDashboard } from '@/lib/data/dashboard';
+import { TrendChart } from '@/components/trend-chart';
 import { SpendingChart } from '@/components/spending-chart';
 import { formatUsd } from '@/lib/finance/money';
 import { validDate, type SearchParams } from '@/lib/transactions';
@@ -135,6 +136,15 @@ export default async function HomePage({
               </div>
             ))}
           </div>
+          <section className="card card-body p-4 mb-4">
+            <h2 className="h5">Trends over time</h2>
+            <p className="small text-secondary">
+              Income and expenses per {dashboard.trends.interval}; balance at
+              each period’s end. Opening balances are included, and transfers
+              are excluded from income and expenses.
+            </p>
+            <TrendChart points={dashboard.trends.points} />
+          </section>
           <div className="row g-4">
             <div className="col-12 col-xl-8">
               <section className="card h-100">

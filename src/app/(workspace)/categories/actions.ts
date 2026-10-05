@@ -50,6 +50,7 @@ export async function save(
     return { fields, error: 'Unable to reach the database. Please try again.' };
   }
   revalidatePath('/categories');
+  revalidatePath('/budgets');
   revalidatePath('/');
   redirect(`/categories?notice=${id ? 'updated' : 'created'}`);
 }
@@ -79,6 +80,7 @@ export async function remove(
     return { error: 'Unable to reach the database. Please try again.' };
   }
   revalidatePath('/categories');
+  revalidatePath('/budgets');
   revalidatePath('/');
   redirect('/categories?notice=deleted');
 }

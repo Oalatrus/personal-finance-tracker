@@ -44,6 +44,7 @@ export function SpendingChart({ spending }: { spending: Spending[] }) {
         animation: false,
         cutout: '65%',
         plugins: {
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: (item) =>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSummary } from './summary.ts';
+import { calculateSummary, calculateTrends } from './summary.ts';
 
 const range = { from: '2026-03-01', to: '2026-03-31' };
 const account = (id, opening = 0, date = '2026-01-01') => ({
@@ -189,5 +189,72 @@ test('large sums remain exact regardless of row order; unsafe results fail', () 
     () =>
       calculateSummary([account('a', Number.MAX_SAFE_INTEGER + 1)], [], range),
     /safe integer/,
+  );
+});
+
+test('daily trends carry history, fill empty days, and reconcile with summary', () => {
+  const accounts = [
+    account('checking', 10000),
+    account('savings', 1000, '2026-03-03'),
+  ];
+  const rows = [
+    transaction('old', 'income', 200, { transaction_date: '2026-02-28' }),
+    transaction('first', 'expense', 29, { transaction_date: '2026-03-01' }),
+    transaction('move', 'transfer', 100, {
+      transaction_date: '2026-03-03',
+      destination_account_id: 'savings',
+      category_id: null,
+    }),
+  ];
+  const selected = { from: '2026-03-01', to: '2026-03-03' };
+  const trend = calculateTrends(accounts, rows, selected);
+  assert.equal(trend.interval, 'day');
+  assert.deepEqual(
+    trend.points.map((p) => p.balanceCents),
+    [10171, 10171, 11171],
+  );
+  assert.deepEqual(
+    trend.points.map((p) => p.expenseCents),
+    [29, 0, 0],
+  );
+  assert.equal(
+    trend.points.reduce((sum, p) => sum + p.incomeCents, 0),
+    0,
+  );
+  assert.equal(
+    trend.points.at(-1).balanceCents,
+    calculateSummary(accounts, rows, selected).balanceCents,
+  );
+});
+
+test('monthly and yearly trends clip partial periods and handle leap/year boundaries', () => {
+  const selected = { from: '2024-01-15', to: '2024-04-02' };
+  const trend = calculateTrends(
+    [account('checking', 0, '2024-01-01')],
+    [transaction('leap', 'income', 29, { transaction_date: '2024-02-29' })],
+    selected,
+  );
+  assert.equal(trend.interval, 'month');
+  assert.deepEqual(
+    trend.points.map((p) => p.to),
+    ['2024-01-31', '2024-02-29', '2024-03-31', '2024-04-02'],
+  );
+  assert.deepEqual(
+    trend.points.map((p) => p.incomeCents),
+    [0, 29, 0, 0],
+  );
+  const yearly = calculateTrends([], [], {
+    from: '2022-12-15',
+    to: '2025-01-01',
+  });
+  assert.equal(yearly.interval, 'year');
+  assert.deepEqual(
+    yearly.points.map((p) => p.to),
+    ['2022-12-31', '2023-12-31', '2024-12-31', '2025-01-01'],
+  );
+  assert.equal(
+    calculateTrends([], [], { from: '9999-12-31', to: '9999-12-31' }).points
+      .length,
+    1,
   );
 });
