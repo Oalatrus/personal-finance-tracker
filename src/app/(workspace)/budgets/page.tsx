@@ -93,6 +93,11 @@ export default async function Page({
           <div className="row g-4">
             <div className="col-12 col-xl-7">
               <h2 className="h5 mb-3">{monthLabel}</h2>
+              <p className="small text-secondary">
+                All recorded expenses dated in this month count toward their
+                category’s budget, including future-dated entries. Income and
+                transfers are excluded.
+              </p>
               {budgets.data?.length ? (
                 <div className="d-grid gap-3">
                   {budgets.data.map((b) => {
@@ -125,6 +130,45 @@ export default async function Page({
                           >
                             Edit
                           </Link>
+                        </div>
+                        <div className="mt-3">
+                          <div className="d-flex justify-content-between flex-wrap gap-2 mb-2 small">
+                            <span>
+                              {formatUsd(b.progress.spentCents)} spent ·{' '}
+                              {b.progress.percentUsed}% used
+                            </span>
+                            <span
+                              className={
+                                b.progress.status === 'over'
+                                  ? 'text-danger fw-semibold'
+                                  : b.progress.status === 'at'
+                                    ? 'fw-semibold'
+                                    : 'text-secondary'
+                              }
+                            >
+                              {b.progress.status === 'over'
+                                ? `${formatUsd(-b.progress.remainingCents)} over budget`
+                                : b.progress.status === 'at'
+                                  ? 'Budget fully used'
+                                  : `${formatUsd(b.progress.remainingCents)} remaining`}
+                            </span>
+                          </div>
+                          <div
+                            className="progress"
+                            role="progressbar"
+                            aria-label={`${category?.name ?? 'Category'} budget usage`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={b.progress.progressPercent}
+                            aria-valuetext={`${formatUsd(b.progress.spentCents)} of ${formatUsd(b.amount_cents)} spent; ${b.progress.percentUsed}% used`}
+                          >
+                            <div
+                              className={`progress-bar ${b.progress.status === 'over' ? 'bg-danger' : b.progress.status === 'at' ? 'bg-warning' : 'bg-primary'}`}
+                              style={{
+                                width: `${b.progress.progressPercent}%`,
+                              }}
+                            />
+                          </div>
                         </div>
                       </article>
                     );

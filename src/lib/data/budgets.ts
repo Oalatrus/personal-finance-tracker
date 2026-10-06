@@ -1,4 +1,9 @@
 import 'server-only';
+import { allRows } from '@/lib/data/rows';
+import {
+  budgetMonthRange,
+  calculateBudgetProgress,
+} from '@/lib/finance/budget-progress';
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/supabase/user';
 import {
@@ -10,12 +15,48 @@ import {
 export async function listBudgets(month: string) {
   const user = await requireUser();
   const supabase = await createClient();
-  return supabase
-    .from('budgets')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('month', `${month}-01`)
-    .order('id');
+  try {
+    const { from, to } = budgetMonthRange(month);
+    const [budgets, expenses] = await Promise.all([
+      allRows((after) => {
+        let query = supabase
+          .from('budgets')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('month', from)
+          .order('id')
+          .limit(500);
+        if (after) query = query.gt('id', after);
+        return query;
+      }),
+      allRows((after) => {
+        let query = supabase
+          .from('transactions')
+          .select('id,category_id,kind,amount_cents,transaction_date')
+          .eq('user_id', user.id)
+          .eq('kind', 'expense')
+          .gte('transaction_date', from)
+          .lte('transaction_date', to)
+          .order('id')
+          .limit(500);
+        if (after) query = query.gt('id', after);
+        return query;
+      }),
+    ]);
+    const progress = calculateBudgetProgress(budgets, expenses, month);
+    return {
+      data: budgets.map((budget, index) => ({
+        ...budget,
+        progress: progress[index]!,
+      })),
+      error: null,
+    };
+  } catch {
+    return {
+      data: null,
+      error: 'Unable to load budget spending. Please try again.',
+    };
+  }
 }
 export async function saveBudget(
   id: string,

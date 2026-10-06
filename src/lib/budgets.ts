@@ -1,4 +1,6 @@
 import type { Tables } from '@/lib/supabase/database.types';
+import { validMonth } from '@/lib/finance/budget-progress';
+export { validMonth } from '@/lib/finance/budget-progress';
 import { parseUsd } from '@/lib/finance/money';
 export type Budget = Tables<'budgets'>;
 export type BudgetFields = { category: string; month: string; amount: string };
@@ -7,8 +9,6 @@ export type BudgetState = {
   fields?: BudgetFields;
   errors?: Partial<Record<keyof BudgetFields, string>>;
 };
-export const validMonth = (month: string) =>
-  /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(month);
 export function validateBudget(fields: BudgetFields) {
   const errors: NonNullable<BudgetState['errors']> = {};
   if (!validMonth(fields.month)) errors.month = 'Choose a valid month.';
