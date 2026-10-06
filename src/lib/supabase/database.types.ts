@@ -129,21 +129,27 @@ export type Database = {
           account_id: string;
           created_at: string;
           id: string;
+          payload_hash: string | null;
           request_id: string;
+          row_count: number | null;
           user_id: string;
         };
         Insert: {
           account_id: string;
           created_at?: string;
           id?: string;
+          payload_hash?: string | null;
           request_id: string;
+          row_count?: number | null;
           user_id?: string;
         };
         Update: {
           account_id?: string;
           created_at?: string;
           id?: string;
+          payload_hash?: string | null;
           request_id?: string;
+          row_count?: number | null;
           user_id?: string;
         };
         Relationships: [
@@ -238,7 +244,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      import_csv_transactions: {
+        Args: {
+          p_account: string;
+          p_allow_duplicates?: boolean;
+          p_request: string;
+          p_rows: Json;
+        };
+        Returns: number;
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -1,7 +1,7 @@
 import type { Tables } from '@/lib/supabase/database.types';
 import type { Account } from '@/lib/accounts';
 import type { Category } from '@/lib/categories';
-import { parseUsd } from '@/lib/finance/money';
+import { parseUsd } from './finance/money.ts';
 
 export type Transaction = Tables<'transactions'>;
 export const transactionKinds = {

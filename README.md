@@ -15,14 +15,18 @@ set Site URL to that address and allow `http://localhost:3000/auth/callback` and
 Open confirmation/reset links in the browser that requested them. Default Supabase
 email delivery is restricted; custom SMTP is needed for other recipients.
 
-The initial migration is already applied to the connected development project.
+The migrations are already applied to the connected development project.
 For a fresh project, run the SQL in `supabase/migrations/` in filename order. It creates private tables with
 row-level security. The workspace requires a confirmed account.
 
 ```sh
-npm run check   # Formatting, lint, TypeScript, and finance tests
-npm test        # Finance calculation tests
+npm run check   # Formatting, lint, TypeScript, and essential tests
+npm test        # Finance and CSV tests
 npm run format  # Apply formatting
 npm run build  # Production build
 npm start      # Serve the production build
 ```
+
+CSV import accepts UTF-8 exports up to 512 KB / 1,000 rows. Map dates and signed
+amounts or debit/credit columns, review categories and duplicates, then confirm.
+Transfers use manual entry. Raw CSV files are not stored.
