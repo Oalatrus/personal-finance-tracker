@@ -370,7 +370,7 @@ export function CsvImport({
         </section>
       ) : (
         <section className="card card-body p-4" aria-busy={pending}>
-          <h2 className="h5">2. Review {filename}</h2>
+          <h2 className="h5 text-break">2. Review {filename}</h2>
           <p>
             {rows.length} rows · {rows.filter((r) => r.errors.length).length}{' '}
             invalid · {rows.filter((r) => r.duplicate).length} possible
@@ -379,7 +379,8 @@ export function CsvImport({
           <p className="small text-secondary">
             Possible duplicates match the account, date, type, amount, and exact
             description, or repeat within this file. They are unchecked by
-            default. Category changes require an updated review.
+            default. Category changes require an updated review. Scroll
+            horizontally on smaller screens to see every column.
           </p>
           <div className="d-flex flex-wrap gap-2 mb-3">
             <button
@@ -429,7 +430,12 @@ export function CsvImport({
               Categories changed. Update the review before importing.
             </p>
           )}
-          <div className="table-responsive">
+          <div
+            className="table-responsive"
+            tabIndex={0}
+            role="region"
+            aria-label="CSV transaction review, scroll horizontally to see all columns"
+          >
             <table className="table align-middle">
               <caption className="visually-hidden">
                 CSV transactions for review; row numbers exclude the header and

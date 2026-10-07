@@ -83,7 +83,12 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
       </div>
       <details className="mt-3">
         <summary>View exact trend values</summary>
-        <div className="table-responsive mt-3">
+        <div
+          className="table-responsive mt-3"
+          tabIndex={0}
+          role="region"
+          aria-label="Exact trend values, scroll horizontally to see all columns"
+        >
           <table className="table small">
             <caption className="visually-hidden">
               Income, expenses, and ending balance in USD

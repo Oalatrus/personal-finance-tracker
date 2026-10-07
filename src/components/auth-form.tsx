@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import {
   authenticate,
   signOut,
@@ -20,6 +20,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     authenticate.bind(null, mode),
     {} as AuthState,
   );
+  const [email, setEmail] = useState('');
   const newPassword = mode === 'signup' || mode === 'reset-password';
   return (
     <form action={action} aria-busy={pending}>
@@ -33,6 +34,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             name="email"
             type="email"
             autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             pattern={String.raw`[^\s@]+@[^\s@]+\.[^\s@]+`}
             title="Enter an email address with @ and a dot in the domain, such as name@example.com."
             required

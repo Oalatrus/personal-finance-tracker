@@ -67,7 +67,7 @@ export function SpendingChart({ spending }: { spending: Spending[] }) {
           />
         </div>
       </div>
-      <div className="col-12 col-md-7">
+      <div className="col-12 col-md-7 table-responsive">
         <table className="table align-middle mb-0">
           <caption className="visually-hidden">
             Spending by category in USD for the selected dates

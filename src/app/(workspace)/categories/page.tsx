@@ -94,7 +94,10 @@ export default async function Page({
               )}
             </div>
             <div className="col-12 col-xl-5">
-              <CategoryForm key={editing?.id ?? 'new'} category={editing} />
+              <CategoryForm
+                key={editing?.id ?? `new-${categories?.length ?? 0}`}
+                category={editing}
+              />
             </div>
           </div>
         </>

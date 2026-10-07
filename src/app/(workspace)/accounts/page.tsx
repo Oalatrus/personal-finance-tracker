@@ -111,7 +111,7 @@ export default async function Page({
             </div>
             <div className="col-12 col-xl-5">
               <AccountForm
-                key={editing?.id ?? 'new'}
+                key={editing?.id ?? `new-${accounts?.length ?? 0}`}
                 account={editing}
                 today={new Date().toISOString().slice(0, 10)}
               />

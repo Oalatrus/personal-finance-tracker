@@ -93,147 +93,154 @@ export function TransactionForm({
         <h2 className="h5 mb-4">
           {transaction ? 'Edit transaction' : 'Add a transaction'}
         </h2>
-        <form action={action} aria-busy={pending}>
-          <input type="hidden" name="id" value={transaction?.id ?? ''} />
-          <input
-            type="hidden"
-            name="filters"
-            value={returnTo.split('?')[1] ?? ''}
-          />
-          <Field
-            name="kind"
-            label="Transaction type"
-            error={state.errors?.kind}
-          >
-            <select
-              {...props('kind')}
-              className="form-select"
-              required
-              onChange={(event) =>
-                setFields((previous) => ({
-                  ...previous,
-                  kind: event.target.value,
-                  category: '',
-                  destination: '',
-                }))
-              }
-            >
-              {Object.entries(transactionKinds).map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field
-            name="account"
-            label={fields.kind === 'transfer' ? 'From account' : 'Account'}
-            error={state.errors?.account}
-          >
-            <select {...props('account')} className="form-select" required>
-              <option value="">Choose an account</option>
-              {accountOptions(transaction?.account_id)}
-            </select>
-          </Field>
-          {fields.kind === 'transfer' ? (
+        <form
+          action={action}
+          aria-busy={pending}
+          onReset={(event) => event.preventDefault()}
+        >
+          <fieldset disabled={pending}>
+            <input type="hidden" name="id" value={transaction?.id ?? ''} />
+            <input
+              type="hidden"
+              name="filters"
+              value={returnTo.split('?')[1] ?? ''}
+            />
             <Field
-              name="destination"
-              label="To account"
-              error={state.errors?.destination}
+              name="kind"
+              label="Transaction type"
+              error={state.errors?.kind}
             >
               <select
-                {...props('destination')}
+                {...props('kind')}
                 className="form-select"
                 required
+                onChange={(event) => {
+                  const kind = event.target.value;
+                  setFields((previous) => ({
+                    ...previous,
+                    kind,
+                    category: '',
+                    destination: '',
+                  }));
+                }}
               >
-                <option value="">Choose a destination</option>
-                {accountOptions(transaction?.destination_account_id)}
-              </select>
-            </Field>
-          ) : (
-            <Field
-              name="category"
-              label="Category"
-              error={state.errors?.category}
-            >
-              <select {...props('category')} className="form-select" required>
-                <option value="">Choose a category</option>
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.archived ? ' (archived)' : ''}
+                {Object.entries(transactionKinds).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
                   </option>
                 ))}
               </select>
-              {!categoryOptions.length && (
-                <p className="form-text">
-                  Add an {fields.kind} category in{' '}
-                  <Link href="/categories">Categories</Link> first.
-                </p>
-              )}
             </Field>
-          )}
-          <Field
-            name="amount"
-            label="Amount (USD)"
-            error={state.errors?.amount}
-          >
-            <input
-              {...props('amount')}
-              className="form-control"
-              inputMode="decimal"
-              required
-              maxLength={20}
-            />
-            <div className="form-text">
-              Enter a positive amount, such as 25.50.
-            </div>
-          </Field>
-          <Field
-            name="date"
-            label="Transaction date"
-            error={state.errors?.date}
-          >
-            <input
-              {...props('date')}
-              className="form-control"
-              type="date"
-              min="0001-01-01"
-              max="9999-12-31"
-              required
-            />
-          </Field>
-          <Field
-            name="description"
-            label="Description (optional)"
-            error={state.errors?.description}
-          >
-            <textarea
-              {...props('description')}
-              className="form-control"
-              rows={2}
-              maxLength={500}
-            />
-          </Field>
-          {state.error && (
-            <p role="alert" className="alert alert-danger">
-              {state.error}
-            </p>
-          )}
-          <div className="d-flex flex-wrap gap-3 align-items-center">
-            <button className="btn btn-primary" disabled={pending}>
-              {pending
-                ? 'Saving…'
-                : transaction
-                  ? 'Save changes'
-                  : 'Create transaction'}
-            </button>
-            {transaction && (
-              <Link href={returnTo} className="btn btn-outline-secondary">
-                Cancel
-              </Link>
+            <Field
+              name="account"
+              label={fields.kind === 'transfer' ? 'From account' : 'Account'}
+              error={state.errors?.account}
+            >
+              <select {...props('account')} className="form-select" required>
+                <option value="">Choose an account</option>
+                {accountOptions(transaction?.account_id)}
+              </select>
+            </Field>
+            {fields.kind === 'transfer' ? (
+              <Field
+                name="destination"
+                label="To account"
+                error={state.errors?.destination}
+              >
+                <select
+                  {...props('destination')}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Choose a destination</option>
+                  {accountOptions(transaction?.destination_account_id)}
+                </select>
+              </Field>
+            ) : (
+              <Field
+                name="category"
+                label="Category"
+                error={state.errors?.category}
+              >
+                <select {...props('category')} className="form-select" required>
+                  <option value="">Choose a category</option>
+                  {categoryOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.archived ? ' (archived)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {!categoryOptions.length && (
+                  <p className="form-text">
+                    Add an {fields.kind} category in{' '}
+                    <Link href="/categories">Categories</Link> first.
+                  </p>
+                )}
+              </Field>
             )}
-          </div>
+            <Field
+              name="amount"
+              label="Amount (USD)"
+              error={state.errors?.amount}
+            >
+              <input
+                {...props('amount')}
+                className="form-control"
+                inputMode="decimal"
+                required
+                maxLength={20}
+              />
+              <div className="form-text">
+                Enter a positive amount, such as 25.50.
+              </div>
+            </Field>
+            <Field
+              name="date"
+              label="Transaction date"
+              error={state.errors?.date}
+            >
+              <input
+                {...props('date')}
+                className="form-control"
+                type="date"
+                min="0001-01-01"
+                max="9999-12-31"
+                required
+              />
+            </Field>
+            <Field
+              name="description"
+              label="Description (optional)"
+              error={state.errors?.description}
+            >
+              <textarea
+                {...props('description')}
+                className="form-control"
+                rows={2}
+                maxLength={500}
+              />
+            </Field>
+            {state.error && (
+              <p role="alert" className="alert alert-danger">
+                {state.error}
+              </p>
+            )}
+            <div className="d-flex flex-wrap gap-3 align-items-center">
+              <button className="btn btn-primary" disabled={pending}>
+                {pending
+                  ? 'Saving…'
+                  : transaction
+                    ? 'Save changes'
+                    : 'Create transaction'}
+              </button>
+              {transaction && (
+                <Link href={returnTo} className="btn btn-outline-secondary">
+                  Cancel
+                </Link>
+              )}
+            </div>
+          </fieldset>
         </form>
       </div>
     </section>

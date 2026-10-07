@@ -38,110 +38,112 @@ export function BudgetForm({
         aria-busy={pending}
         onReset={(event) => event.preventDefault()}
       >
-        <input type="hidden" name="id" value={budget?.id ?? ''} />
-        <div className="mb-3">
-          <label htmlFor="budget-category" className="form-label">
-            Expense category
-          </label>
-          <select
-            id="budget-category"
-            name="category"
-            className="form-select"
-            value={fields.category}
-            onChange={(event) => update('category', event.target.value)}
-            required
-            aria-invalid={!!state.errors?.category}
-            aria-describedby={
-              state.errors?.category ? 'category-error' : undefined
-            }
-          >
-            <option value="">Choose a category</option>
-            {options.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.archived ? ' (archived)' : ''}
-              </option>
-            ))}
-          </select>
-          {state.errors?.category && (
-            <p id="category-error" className="text-danger small mt-1">
-              {state.errors.category}
-            </p>
-          )}
-          {!options.length && (
-            <p className="form-text">
-              Add an expense category in{' '}
-              <Link href="/categories">Categories</Link> first.
-            </p>
-          )}
-        </div>
-        <div className="mb-3">
-          <label htmlFor="budget-month" className="form-label">
-            Budget month
-          </label>
-          <input
-            id="budget-month"
-            name="month"
-            type="month"
-            className="form-control"
-            value={fields.month}
-            onChange={(event) => update('month', event.target.value)}
-            min="0001-01"
-            max="9999-12"
-            required
-            aria-invalid={!!state.errors?.month}
-            aria-describedby={state.errors?.month ? 'month-error' : undefined}
-          />
-          {state.errors?.month && (
-            <p id="month-error" className="text-danger small mt-1">
-              {state.errors.month}
-            </p>
-          )}
-        </div>
-        <div className="mb-3">
-          <label htmlFor="budget-amount" className="form-label">
-            Monthly limit (USD)
-          </label>
-          <input
-            id="budget-amount"
-            name="amount"
-            inputMode="decimal"
-            className="form-control"
-            value={fields.amount}
-            onChange={(event) => update('amount', event.target.value)}
-            required
-            maxLength={20}
-            aria-invalid={!!state.errors?.amount}
-            aria-describedby="amount-help amount-error"
-          />
-          <div id="amount-help" className="form-text">
-            Enter a positive amount, such as 300.00. One budget per category and
-            month.
-          </div>
-          {state.errors?.amount && (
-            <p id="amount-error" className="text-danger small mt-1">
-              {state.errors.amount}
-            </p>
-          )}
-        </div>
-        {state.error && (
-          <p role="alert" className="alert alert-danger">
-            {state.error}
-          </p>
-        )}
-        <div className="d-flex gap-3 align-items-center">
-          <button className="btn btn-primary" disabled={pending}>
-            {pending ? 'Saving…' : budget ? 'Save changes' : 'Create budget'}
-          </button>
-          {budget && (
-            <Link
-              href={`/budgets?month=${month}`}
-              className="btn btn-outline-secondary"
+        <fieldset disabled={pending}>
+          <input type="hidden" name="id" value={budget?.id ?? ''} />
+          <div className="mb-3">
+            <label htmlFor="budget-category" className="form-label">
+              Expense category
+            </label>
+            <select
+              id="budget-category"
+              name="category"
+              className="form-select"
+              value={fields.category}
+              onChange={(event) => update('category', event.target.value)}
+              required
+              aria-invalid={!!state.errors?.category}
+              aria-describedby={
+                state.errors?.category ? 'category-error' : undefined
+              }
             >
-              Cancel
-            </Link>
+              <option value="">Choose a category</option>
+              {options.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.archived ? ' (archived)' : ''}
+                </option>
+              ))}
+            </select>
+            {state.errors?.category && (
+              <p id="category-error" className="text-danger small mt-1">
+                {state.errors.category}
+              </p>
+            )}
+            {!options.length && (
+              <p className="form-text">
+                Add an expense category in{' '}
+                <Link href="/categories">Categories</Link> first.
+              </p>
+            )}
+          </div>
+          <div className="mb-3">
+            <label htmlFor="budget-month" className="form-label">
+              Budget month
+            </label>
+            <input
+              id="budget-month"
+              name="month"
+              type="month"
+              className="form-control"
+              value={fields.month}
+              onChange={(event) => update('month', event.target.value)}
+              min="0001-01"
+              max="9999-12"
+              required
+              aria-invalid={!!state.errors?.month}
+              aria-describedby={state.errors?.month ? 'month-error' : undefined}
+            />
+            {state.errors?.month && (
+              <p id="month-error" className="text-danger small mt-1">
+                {state.errors.month}
+              </p>
+            )}
+          </div>
+          <div className="mb-3">
+            <label htmlFor="budget-amount" className="form-label">
+              Monthly limit (USD)
+            </label>
+            <input
+              id="budget-amount"
+              name="amount"
+              inputMode="decimal"
+              className="form-control"
+              value={fields.amount}
+              onChange={(event) => update('amount', event.target.value)}
+              required
+              maxLength={20}
+              aria-invalid={!!state.errors?.amount}
+              aria-describedby={`amount-help${state.errors?.amount ? ' amount-error' : ''}`}
+            />
+            <div id="amount-help" className="form-text">
+              Enter a positive amount, such as 300.00. One budget per category
+              and month.
+            </div>
+            {state.errors?.amount && (
+              <p id="amount-error" className="text-danger small mt-1">
+                {state.errors.amount}
+              </p>
+            )}
+          </div>
+          {state.error && (
+            <p role="alert" className="alert alert-danger">
+              {state.error}
+            </p>
           )}
-        </div>
+          <div className="d-flex flex-wrap gap-3 align-items-center">
+            <button className="btn btn-primary" disabled={pending}>
+              {pending ? 'Saving…' : budget ? 'Save changes' : 'Create budget'}
+            </button>
+            {budget && (
+              <Link
+                href={`/budgets?month=${month}`}
+                className="btn btn-outline-secondary"
+              >
+                Cancel
+              </Link>
+            )}
+          </div>
+        </fieldset>
       </form>
     </section>
   );
