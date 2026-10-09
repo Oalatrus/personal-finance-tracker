@@ -23,7 +23,9 @@ export default async function BanksPage({
     await Promise.all([
       db
         .from('plaid_connections')
-        .select('id,institution,environment,disconnected,last_synced_at')
+        .select(
+          'id,institution,environment,disconnected,last_synced_at,auto_import,sync_error,webhook_url',
+        )
         .eq('user_id', user.id)
         .order('created_at'),
       db.from('plaid_accounts').select('*').eq('user_id', user.id),
@@ -44,7 +46,7 @@ export default async function BanksPage({
         .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .eq('needs_review', true)
-        .eq('pending', false)
+        .or('pending.eq.false,removed.eq.true')
         .order('transaction_date', { ascending: false })
         .order('provider_id')
         .order('connection_id')
@@ -92,7 +94,7 @@ export default async function BanksPage({
       <header className="mb-4">
         <h1>Bank connections</h1>
         <p className="text-secondary">
-          Connect, sync, and review your bank transactions.
+          Your bank transactions update and import automatically.
         </p>
       </header>
       {!ready && (
@@ -138,6 +140,39 @@ export default async function BanksPage({
                   ? `Last synced: ${new Date(bank.last_synced_at).toISOString().replace('T', ' ').slice(0, 16)} UTC`
                   : 'Not synced yet.'}
             </p>
+            {!bank.disconnected && (
+              <p className="small text-secondary">
+                {bank.webhook_url
+                  ? 'Background updates are enabled, even when you’re signed out.'
+                  : 'Transactions update automatically while this app is open.'}
+              </p>
+            )}
+            {bank.sync_error && !bank.disconnected && (
+              <p role="alert" className="alert alert-warning">
+                {bank.sync_error}
+              </p>
+            )}
+            <BankForm>
+              <input type="hidden" name="operation" value="settings" />
+              <input type="hidden" name="connection" value={bank.id} />
+              <label className="form-check-label mb-2">
+                <input
+                  type="checkbox"
+                  className="form-check-input me-2"
+                  name="automatic"
+                  defaultChecked={bank.auto_import}
+                />
+                Automatically import posted transactions
+              </label>
+              <button className="btn btn-sm btn-outline-primary d-block mb-3">
+                Save import settings
+              </button>
+            </BankForm>
+            <p className="small text-secondary">
+              Categories are assigned automatically. Possible duplicates and
+              transfers stay in review. You can edit imported categories in
+              Transactions.
+            </p>
             {mappings.data
               ?.filter((a) => a.connection_id === bank.id)
               .map((mapping) => (
@@ -181,65 +216,76 @@ export default async function BanksPage({
                 </div>
               ))}
             {!bank.disconnected && (
-              <div className="d-flex flex-wrap align-items-start gap-3">
-                <BankForm>
-                  <input type="hidden" name="connection" value={bank.id} />
-                  <button
-                    className="btn btn-primary"
-                    name="operation"
-                    value="sync"
-                    disabled={!ready}
-                  >
-                    Sync transactions
-                  </button>
-                </BankForm>
-                <BankLink connection={bank.id} disabled={!ready} />
-                <BankForm>
-                  <input type="hidden" name="connection" value={bank.id} />
-                  <label className="form-check-label d-block mb-2">
-                    <input
-                      type="checkbox"
-                      className="form-check-input me-2"
-                      name="confirm"
-                      required
-                    />
-                    Confirm disconnect
-                  </label>
-                  <button
-                    className="btn btn-outline-danger"
-                    name="operation"
-                    value="disconnect"
-                    disabled={!ready}
-                  >
-                    Disconnect bank
-                  </button>
-                </BankForm>
-              </div>
+              <details>
+                <summary className="mb-3">Connection options</summary>
+                <div className="d-flex flex-wrap align-items-start gap-3">
+                  <BankForm>
+                    <input type="hidden" name="connection" value={bank.id} />
+                    <button
+                      className="btn btn-primary"
+                      name="operation"
+                      value="sync"
+                      disabled={!ready}
+                    >
+                      Check now
+                    </button>
+                  </BankForm>
+                  <BankForm>
+                    <input type="hidden" name="connection" value={bank.id} />
+                    <button
+                      className="btn btn-outline-primary"
+                      name="operation"
+                      value="import-ready"
+                    >
+                      Import ready transactions
+                    </button>
+                  </BankForm>
+                  <BankLink connection={bank.id} disabled={!ready} />
+                  <BankForm>
+                    <input type="hidden" name="connection" value={bank.id} />
+                    <label className="form-check-label d-block mb-2">
+                      <input
+                        type="checkbox"
+                        className="form-check-input me-2"
+                        name="confirm"
+                        required
+                      />
+                      Confirm disconnect
+                    </label>
+                    <button
+                      className="btn btn-outline-danger"
+                      name="operation"
+                      value="disconnect"
+                      disabled={!ready}
+                    >
+                      Disconnect bank
+                    </button>
+                  </BankForm>
+                </div>
+              </details>
             )}
           </div>
         </section>
       ))}
       <section className="mt-4" aria-labelledby="review-title">
         <h2 className="h4" id="review-title">
-          Review bank updates ({records.count || 0})
+          Needs attention ({records.count || 0})
         </h2>
         <p className="small text-secondary">
-          Only posted USD transactions can be imported. Pending transactions (
-          {pending.count || 0}) stay out of totals. Choose a tracker account
-          whose opening date precedes the imported history. For transfers
-          between your own accounts, skip both bank entries and add one manual
-          transfer.
+          Most posted transactions import automatically. Pending transactions (
+          {pending.count || 0}) stay out of totals. Entries below need a
+          decision, an account mapping, or an earlier account opening date.
         </p>
         <p className="small text-secondary">
-          Bank corrections and removals require review. Applying a correction
-          replaces that transaction’s amount, date, description, and category.
-          Skipping keeps your existing ledger unchanged.
+          For transfers between your own accounts, skip both bank entries and
+          add one manual transfer. Your manual edits are preserved; review any
+          conflicting bank corrections below.
         </p>
         {!rows.length && (
           <div className="card">
             <div className="card-body">
-              No posted bank updates to review. Sync a connected bank to check
-              for new transactions.
+              Nothing needs attention. New bank transactions will appear
+              automatically.
             </div>
           </div>
         )}
@@ -274,6 +320,13 @@ export default async function BanksPage({
               {row.signed_cents === 0 && !row.removed && (
                 <p>Zero amount: skip this entry.</p>
               )}
+              {row.transfer_review && !row.removed && (
+                <p className="text-warning">
+                  Possible transfer or loan payment. Check that importing it as
+                  income or spending will not double-count money moving between
+                  your accounts.
+                </p>
+              )}
               {duplicate && (
                 <p className="text-warning">
                   Possible duplicate of an existing transaction.
@@ -299,7 +352,15 @@ export default async function BanksPage({
                       className="form-select mb-2"
                       id={`category-${row.connection_id}-${row.provider_id}`}
                       name="category"
-                      defaultValue=""
+                      defaultValue={
+                        categories.data?.find(
+                          (c) =>
+                            c.kind ===
+                              (row.signed_cents < 0 ? 'income' : 'expense') &&
+                            c.name.toLowerCase() ===
+                              row.auto_category_name.toLowerCase(),
+                        )?.id || ''
+                      }
                     >
                       <option value="">Choose a category</option>
                       {categories.data
@@ -315,6 +376,13 @@ export default async function BanksPage({
                         ))}
                     </select>
                   </>
+                )}
+                {row.transfer_review && !row.removed && (
+                  <p className="text-warning">
+                    Possible transfer or loan payment. Check that importing it
+                    as income or spending will not double-count money moving
+                    between your accounts.
+                  </p>
                 )}
                 {duplicate && (
                   <label className="d-block mb-2">

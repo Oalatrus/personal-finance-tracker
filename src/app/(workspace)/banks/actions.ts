@@ -5,9 +5,15 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/supabase/user';
 import { validId } from '@/lib/transactions';
+import type { Json } from '@/lib/supabase/database.types';
 import { plaidConfig, plaidRequest } from '@/lib/plaid/client';
 import { decryptToken, encryptToken } from '@/lib/plaid/security';
-import { collectSync, type SyncPage } from '@/lib/plaid/transactions';
+import {
+  saveBankAccounts as syncAccounts,
+  syncBank,
+  webhookUrl,
+} from '@/lib/plaid/sync';
+import { plaidReady } from '@/lib/plaid/client';
 
 export type BankState = { error?: string; message?: string };
 const refresh = () => {
@@ -21,12 +27,13 @@ const fail = (error: unknown): BankState => ({
       : 'Unable to complete the bank request.',
 });
 
-type PlaidAccount = {
-  account_id: string;
-  name: string;
-  mask: string | null;
-  balances: { iso_currency_code: string | null };
-};
+function importMessage(result: Json) {
+  if (!result || typeof result !== 'object' || Array.isArray(result))
+    throw new Error('Unable to read the bank sync result.');
+  const count = (name: string) =>
+    typeof result[name] === 'number' ? result[name] : 0;
+  return `${count('imported')} imported, ${count('updated')} updated, ${count('removed')} removed. ${count('review')} need review; ${count('pending')} pending.`;
+}
 
 async function connection(id: string) {
   const user = await requireUser();
@@ -52,28 +59,65 @@ async function connection(id: string) {
 }
 
 async function saveBankAccounts(id: string, token: string) {
-  const user = await requireUser();
-  const db = await createClient();
-  const data = await plaidRequest<{ accounts: PlaidAccount[] }>(
-    '/accounts/get',
-    { access_token: token },
-  );
-  for (const account of data.accounts) {
-    const { error } = await db.from('plaid_accounts').upsert(
-      {
-        user_id: user.id,
-        connection_id: id,
-        bank_account_id: account.account_id,
-        name: account.name.slice(0, 200),
-        mask: account.mask,
-      },
-      { onConflict: 'connection_id,bank_account_id', ignoreDuplicates: true },
-    );
-    if (error)
-      throw new Error(
-        'Could not save bank accounts. Retry syncing this connection.',
-      );
+  const saved = await connection(id);
+  await syncAccounts(saved.db, saved.data, token);
+}
+
+async function initialSync(id: string) {
+  const saved = await connection(id);
+  try {
+    await syncBank(saved.db, saved.data);
+  } catch {
+    // The connection is saved; automatic checks retry while the bank prepares its history.
   }
+}
+
+export async function automaticBankUpdates() {
+  const user = await requireUser();
+  if (!plaidReady()) return { checked: 0, version: '', error: false };
+  const db = await createClient();
+  const config = plaidConfig();
+  const cutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+  const url = webhookUrl();
+  const dueFilter =
+    `last_checked_at.is.null,last_checked_at.lt.${cutoff}` +
+    (url ? `,webhook_url.is.null,webhook_url.neq.${url}` : '');
+  const due = await db
+    .from('plaid_connections')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('disconnected', false)
+    .eq('environment', config.environment)
+    .or(dueFilter)
+    .order('last_checked_at', { nullsFirst: true })
+    .limit(5);
+  if (due.error) return { checked: 0, version: '', error: true };
+  const results = await Promise.allSettled(
+    due.data.map((bank) =>
+      syncBank(db, bank, {
+        automatic: !(url && bank.webhook_url !== url),
+      }),
+    ),
+  );
+  const checked = results.filter(
+    (r) => r.status === 'fulfilled' && !r.value.busy,
+  ).length;
+  const latest = await db
+    .from('plaid_connections')
+    .select('last_synced_at,sync_error')
+    .eq('user_id', user.id)
+    .eq('disconnected', false)
+    .order('id');
+  return {
+    checked,
+    version:
+      latest.data?.map((bank) => bank.last_synced_at || '').join('|') || '',
+    error: Boolean(
+      latest.error ||
+      latest.data?.some((bank) => bank.sync_error) ||
+      results.some((r) => r.status === 'rejected'),
+    ),
+  };
 }
 
 export async function startBankLink(id?: string) {
@@ -91,6 +135,7 @@ export async function startBankLink(id?: string) {
         country_codes: ['US'],
         language: 'en',
         redirect_uri: new URL('/banks', site).toString(),
+        ...(webhookUrl() ? { webhook: webhookUrl() } : {}),
         ...(existing
           ? { access_token: existing.token }
           : {
@@ -125,10 +170,10 @@ export async function finishBankLink(
     )
       throw new Error('Invalid bank link response.');
     if (update) {
-      await connection(id);
+      await initialSync(id);
       refresh();
       return {
-        message: 'Bank access restored. Sync to check for new transactions.',
+        message: 'Bank access restored. Transactions update automatically.',
       };
     }
     const db = await createClient();
@@ -144,9 +189,11 @@ export async function finishBankLink(
     if (existing.data) {
       const saved = await connection(id);
       await saveBankAccounts(id, saved.token);
+      await initialSync(id);
       refresh();
       return {
-        message: 'Bank connected. Map its accounts and sync transactions.',
+        message:
+          'Bank connected. Map its accounts once; transactions update automatically.',
       };
     }
     const exchanged = await plaidRequest<{
@@ -179,9 +226,11 @@ export async function finishBankLink(
       throw new Error('Could not save this bank connection. Start Link again.');
     }
     await saveBankAccounts(id, exchanged.access_token);
+    await initialSync(id);
     refresh();
     return {
-      message: 'Bank connected. Map its accounts and sync transactions.',
+      message:
+        'Bank connected. Map its accounts once; transactions update automatically.',
     };
   } catch (error) {
     refresh();
@@ -199,6 +248,39 @@ export async function bankAction(
     const operation = String(form.get('operation') || '');
     const user = await requireUser();
     const db = await createClient();
+    if (operation === 'settings') {
+      if (!validId(id)) throw new Error('Invalid bank connection.');
+      const enabled = form.get('automatic') === 'on';
+      const { data, error } = await db
+        .from('plaid_connections')
+        .update({
+          auto_import: enabled,
+          ...(enabled ? { last_checked_at: null } : {}),
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select('id')
+        .maybeSingle();
+      if (error || !data) throw new Error('Unable to save import settings.');
+      refresh();
+      return {
+        message: enabled
+          ? 'Automatic import enabled. Posted transactions will import automatically.'
+          : 'Manual review enabled.',
+      };
+    }
+    if (operation === 'import-ready') {
+      if (!validId(id)) throw new Error('Invalid bank connection.');
+      const { data, error } = await db.rpc('import_ready_plaid_transactions', {
+        p_connection: id,
+      });
+      if (error)
+        throw new Error(
+          'Unable to import ready transactions. Your ledger was not changed; try again.',
+        );
+      refresh();
+      return { message: importMessage(data) };
+    }
     if (operation === 'map') {
       const accountId = String(form.get('account') || '');
       const bankId = String(form.get('bankAccount') || '');
@@ -214,6 +296,23 @@ export async function bankAction(
           'Unable to save this mapping. Choose an active account; mappings cannot change after import.',
         );
       refresh();
+      const settings = await db
+        .from('plaid_connections')
+        .select('auto_import')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+      if (!settings.error && settings.data.auto_import) {
+        const imported = await db.rpc('import_ready_plaid_transactions', {
+          p_connection: id,
+        });
+        refresh();
+        return {
+          message: imported.error
+            ? 'Account mapping saved. Transactions will import on the next automatic update.'
+            : `Account mapping saved. ${importMessage(imported.data)}`,
+        };
+      }
       return { message: 'Account mapping saved.' };
     }
     if (operation === 'review' || operation === 'ignore') {
@@ -271,28 +370,12 @@ export async function bankAction(
         message: 'Bank disconnected. Imported transactions are retained.',
       };
     }
-    await saveBankAccounts(id, saved.token);
-    const updates = await collectSync(saved.data.cursor, (cursor) =>
-      plaidRequest<SyncPage>('/transactions/sync', {
-        access_token: saved.token,
-        ...(cursor ? { cursor } : {}),
-        count: 500,
-      }),
-    );
-    const { error } = await db.rpc('stage_plaid_sync', {
-      p_connection: id,
-      p_previous: saved.data.cursor,
-      p_cursor: updates.cursor,
-      p_rows: updates.rows,
-      p_removed: updates.removed,
-    });
-    if (error)
-      throw new Error(
-        'Sync could not be saved. Retry; your saved cursor has not advanced.',
-      );
+    const result = await syncBank(db, saved.data);
     refresh();
     return {
-      message: `${updates.rows.length} bank updates fetched. Review posted transactions below. New connections may need another sync after bank data finishes preparing.`,
+      message: result.busy
+        ? 'Bank updates are already running. Transactions will appear automatically.'
+        : importMessage(result.result),
     };
   } catch (error) {
     return fail(error);

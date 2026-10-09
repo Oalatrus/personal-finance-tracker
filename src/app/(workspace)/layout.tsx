@@ -1,8 +1,10 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { requireUser } from '@/lib/supabase/user';
 import { SignOut } from '@/components/auth-form';
 import { Navigation } from '@/components/navigation';
+import { BankUpdates } from '@/components/bank-updates';
 
 export default async function WorkspaceLayout({
   children,
@@ -22,6 +24,7 @@ export default async function WorkspaceLayout({
               <span className="text-secondary ms-2">/ USD</span>
             </span>
             <div className="d-flex align-items-center gap-3 flex-wrap">
+              <BankUpdates />
               <span className="small text-break">{user.email}</span>
               <SignOut />
             </div>

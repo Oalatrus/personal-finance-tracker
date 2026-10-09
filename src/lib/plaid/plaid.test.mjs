@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { verifyPlaidWebhook } from './webhook.ts';
 import { encryptToken, decryptToken } from './security.ts';
 import { normalizeBankTransaction, collectSync } from './transactions.ts';
 
@@ -125,4 +128,90 @@ test('a failed or oversized sync never returns a partially advanced cursor', asy
     })),
     /Too many bank updates/,
   );
+});
+
+test('bank categories suggest familiar labels while transfers and loan movements need attention', () => {
+  const classify = (amount, primary, detailed, transaction_code) =>
+    normalizeBankTransaction({
+      ...transaction,
+      amount,
+      transaction_code,
+      personal_finance_category: primary ? { primary, detailed } : null,
+    });
+  assert.equal(
+    classify(10.29, 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES')
+      .auto_category_name,
+    'Groceries',
+  );
+  assert.equal(
+    classify(-2500, 'INCOME', 'INCOME_WAGES').auto_category_name,
+    'Salary',
+  );
+  assert.equal(
+    classify(-10.29, 'GENERAL_MERCHANDISE', 'GENERAL_MERCHANDISE_OTHER')
+      .auto_category_name,
+    'Refunds',
+  );
+  assert.equal(classify(10.29, null).auto_category_name, 'Uncategorized');
+  for (const primary of [
+    'TRANSFER_IN',
+    'TRANSFER_OUT',
+    'LOAN_PAYMENTS',
+    'LOAN_DISBURSEMENTS',
+  ])
+    assert.equal(classify(10.29, primary, '').transfer_review, true);
+  assert.equal(classify(10.29, null, '', 'transfer').transfer_review, true);
+  assert.equal(classify(10.29, 'FOOD_AND_DRINK', '').transfer_review, false);
+});
+
+test('webhooks require a fresh ES256 signature and the original body hash; tampering and expired keys fail', async () => {
+  const { privateKey, publicKey } = await generateKeyPair('ES256');
+  const key = {
+    ...(await exportJWK(publicKey)),
+    kid: 'fictional-key',
+    alg: 'ES256',
+    expired_at: null,
+  };
+  const body = JSON.stringify({
+    webhook_type: 'TRANSACTIONS',
+    item_id: 'fictional-item',
+  });
+  const hash = createHash('sha256').update(body).digest('hex');
+  const sign = (age = 0, claimedHash = hash) =>
+    new SignJWT({ request_body_sha256: claimedHash })
+      .setProtectedHeader({ alg: 'ES256', kid: key.kid })
+      .setIssuedAt(Math.floor(Date.now() / 1000) - age)
+      .sign(privateKey);
+  const signature = await sign();
+  const fetchKey = async (id) => {
+    assert.equal(id, key.kid);
+    return key;
+  };
+  await verifyPlaidWebhook(body, signature, fetchKey);
+  await assert.rejects(verifyPlaidWebhook(body + ' ', signature, fetchKey));
+  await assert.rejects(verifyPlaidWebhook(body, null, fetchKey));
+  await assert.rejects(verifyPlaidWebhook(body, await sign(301), fetchKey));
+  await assert.rejects(verifyPlaidWebhook(body, await sign(-60), fetchKey));
+  await assert.rejects(
+    verifyPlaidWebhook(body, await sign(0, 'not-a-hash'), fetchKey),
+  );
+  await assert.rejects(
+    verifyPlaidWebhook(body, signature, async () => ({
+      ...key,
+      expired_at: 1,
+    })),
+  );
+  const other = await generateKeyPair('ES256');
+  await assert.rejects(
+    verifyPlaidWebhook(body, signature, async () => ({
+      ...(await exportJWK(other.publicKey)),
+      kid: key.kid,
+      alg: 'ES256',
+    })),
+  );
+  const hsToken = await new SignJWT({ request_body_sha256: hash })
+    .setProtectedHeader({ alg: 'HS256', kid: key.kid })
+    .setIssuedAt()
+    .sign(new Uint8Array(32));
+  await assert.rejects(verifyPlaidWebhook(body, hsToken, fetchKey));
 });

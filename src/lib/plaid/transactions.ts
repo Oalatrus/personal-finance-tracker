@@ -9,6 +9,12 @@ export type BankTransaction = {
   name: string;
   merchant_name?: string | null;
   pending: boolean;
+  transaction_code?: string | null;
+  personal_finance_category?: {
+    primary: string;
+    detailed: string;
+    confidence_level?: string;
+  } | null;
 };
 export type SyncPage = {
   added: BankTransaction[];
@@ -17,6 +23,40 @@ export type SyncPage = {
   next_cursor: string;
   has_more: boolean;
 };
+
+const categoryNames: Record<string, string> = {
+  INCOME: 'Income',
+  BANK_FEES: 'Bank fees',
+  ENTERTAINMENT: 'Entertainment',
+  FOOD_AND_DRINK: 'Food & drink',
+  GENERAL_MERCHANDISE: 'Shopping',
+  GENERAL_SERVICES: 'Services',
+  GOVERNMENT_AND_NON_PROFIT: 'Government & donations',
+  HOME_IMPROVEMENT: 'Home improvement',
+  MEDICAL: 'Medical',
+  PERSONAL_CARE: 'Personal care',
+  RENT_AND_UTILITIES: 'Rent & utilities',
+  TRANSPORTATION: 'Transportation',
+  TRAVEL: 'Travel',
+};
+
+export function bankClassification(row: BankTransaction) {
+  const primary = row.personal_finance_category?.primary || '';
+  const detailed = row.personal_finance_category?.detailed || '';
+  const transfer =
+    [
+      'TRANSFER_IN',
+      'TRANSFER_OUT',
+      'LOAN_DISBURSEMENTS',
+      'LOAN_PAYMENTS',
+    ].includes(primary) || row.transaction_code === 'transfer';
+  let name = categoryNames[primary] || 'Uncategorized';
+  if (detailed === 'FOOD_AND_DRINK_GROCERIES') name = 'Groceries';
+  if (detailed === 'INCOME_WAGES') name = 'Salary';
+  if (row.amount < 0 && primary && primary !== 'INCOME' && !transfer)
+    name = 'Refunds';
+  return { auto_category_name: name, transfer_review: transfer };
+}
 
 export function normalizeBankTransaction(row: BankTransaction) {
   if (row.iso_currency_code !== 'USD')
@@ -41,6 +81,7 @@ export function normalizeBankTransaction(row: BankTransaction) {
       500,
     ),
     pending: row.pending,
+    ...bankClassification(row),
   };
 }
 

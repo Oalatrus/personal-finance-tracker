@@ -8,7 +8,7 @@ npm run dev
 ```
 
 Open http://localhost:3000. Copy `.env.example` to `.env.local` and set
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Never use a secret/service-role key.
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Use only the publishable key for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 Set `SITE_URL=http://localhost:3000` locally. In Supabase Auth → URL Configuration,
 set Site URL to that address and allow `http://localhost:3000/auth/callback` and
 `http://localhost:3000/auth/callback?next=/auth/reset-password`.
@@ -43,7 +43,7 @@ variables, set `SITE_URL` to its HTTPS address, and update Supabase Auth’s Sit
 and callback allowlist. Choose email delivery and a database backup plan before
 using real financial data. The hosted app uses the same Supabase records as local development.
 
-Plaid uses manual sync and a review queue at `/banks`. Set server-only
+Plaid syncs and imports automatically at `/banks`. Set server-only
 `PLAID_CLIENT_ID`, `PLAID_SECRET` (Sandbox key), `PLAID_ENV=sandbox`, and
 `PLAID_TOKEN_ENCRYPTION_KEY` (64 hexadecimal characters; generate with
 `openssl rand -hex 32`). Keep the encryption key backed up and identical locally
@@ -56,8 +56,15 @@ For real banks, obtain Plaid’s free Trial approval first, then use its Product
 secret, `PLAID_ENV=production`, and `PLAID_FREE_TRIAL_APPROVED=true`. The Trial
 allows 10 total Production Items; disconnecting does not restore that allowance.
 No paid plan is required or enabled by this app. Map bank accounts to existing
-tracker accounts, sync, then review posted USD transactions. Bank corrections
-and removals require confirmation; pending transactions are excluded. Sync
-does not run in the background. Disconnect revokes bank access and keeps
+tracker accounts once; posted USD transactions import with automatic categories. Duplicates, transfers, and conflicts with manual edits stay in review.
+Bank corrections/removals apply automatically to unchanged imports; manual
+category edits are preserved. Disable automatic import for manual review. Pending
+transactions are excluded. The app checks every five minutes while open. For updates
+while signed out, set server-only `SUPABASE_SECRET_KEY` (`sb_secret_…` from Supabase
+Project Settings → API Keys), keep `SITE_URL` on Vercel set to your HTTPS production
+URL, then deploy and open the app once to register existing banks for verified Plaid
+webhooks. New connections register automatically. Localhost receives updates while
+the app is open; Plaid cannot deliver webhooks to localhost. Bank update timing
+depends on Plaid and your institution. Disconnect revokes bank access and keeps
 imported ledger entries. Manual/CSV duplicates are flagged by account, date,
 amount, and type; separate identical transactions need explicit confirmation.

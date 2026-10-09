@@ -206,6 +206,8 @@ export type Database = {
       };
       plaid_connections: {
         Row: {
+          auto_import: boolean;
+          classification_ready: boolean;
           created_at: string;
           cursor: string | null;
           disconnected: boolean;
@@ -214,10 +216,17 @@ export type Database = {
           id: string;
           institution: string;
           item_id: string;
+          last_checked_at: string | null;
           last_synced_at: string | null;
+          sync_error: string | null;
+          sync_lease: string | null;
+          sync_started_at: string | null;
           user_id: string;
+          webhook_url: string | null;
         };
         Insert: {
+          auto_import?: boolean;
+          classification_ready?: boolean;
           created_at?: string;
           cursor?: string | null;
           disconnected?: boolean;
@@ -226,10 +235,17 @@ export type Database = {
           id: string;
           institution?: string;
           item_id: string;
+          last_checked_at?: string | null;
           last_synced_at?: string | null;
+          sync_error?: string | null;
+          sync_lease?: string | null;
+          sync_started_at?: string | null;
           user_id?: string;
+          webhook_url?: string | null;
         };
         Update: {
+          auto_import?: boolean;
+          classification_ready?: boolean;
           created_at?: string;
           cursor?: string | null;
           disconnected?: boolean;
@@ -238,17 +254,24 @@ export type Database = {
           id?: string;
           institution?: string;
           item_id?: string;
+          last_checked_at?: string | null;
           last_synced_at?: string | null;
+          sync_error?: string | null;
+          sync_lease?: string | null;
+          sync_started_at?: string | null;
           user_id?: string;
+          webhook_url?: string | null;
         };
         Relationships: [];
       };
       plaid_records: {
         Row: {
+          auto_category_name: string;
           bank_account_id: string;
           connection_id: string;
           description: string;
           ignored: boolean;
+          ledger_snapshot: Json | null;
           needs_review: boolean;
           pending: boolean;
           provider_id: string;
@@ -256,14 +279,17 @@ export type Database = {
           signed_cents: number;
           transaction_date: string;
           transaction_id: string | null;
+          transfer_review: boolean;
           user_id: string;
           version: number;
         };
         Insert: {
+          auto_category_name?: string;
           bank_account_id: string;
           connection_id: string;
           description: string;
           ignored?: boolean;
+          ledger_snapshot?: Json | null;
           needs_review?: boolean;
           pending: boolean;
           provider_id: string;
@@ -271,14 +297,17 @@ export type Database = {
           signed_cents: number;
           transaction_date: string;
           transaction_id?: string | null;
+          transfer_review?: boolean;
           user_id?: string;
           version?: number;
         };
         Update: {
+          auto_category_name?: string;
           bank_account_id?: string;
           connection_id?: string;
           description?: string;
           ignored?: boolean;
+          ledger_snapshot?: Json | null;
           needs_review?: boolean;
           pending?: boolean;
           provider_id?: string;
@@ -286,6 +315,7 @@ export type Database = {
           signed_cents?: number;
           transaction_date?: string;
           transaction_id?: string | null;
+          transfer_review?: boolean;
           user_id?: string;
           version?: number;
         };
@@ -388,6 +418,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_plaid_sync: {
+        Args: { p_automatic?: boolean; p_connection: string };
+        Returns: string;
+      };
       import_csv_transactions: {
         Args: {
           p_account: string;
@@ -397,6 +431,10 @@ export type Database = {
         };
         Returns: number;
       };
+      import_ready_plaid_transactions: {
+        Args: { p_connection: string };
+        Returns: Json;
+      };
       map_plaid_account: {
         Args: {
           p_account: string;
@@ -405,6 +443,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      plaid_ledger_snapshot: { Args: { p_transaction: string }; Returns: Json };
       review_plaid_record: {
         Args: {
           p_allow_duplicate?: boolean;
@@ -425,6 +464,26 @@ export type Database = {
           p_rows: Json;
         };
         Returns: number;
+      };
+      sync_plaid_background: {
+        Args: {
+          p_connection: string;
+          p_cursor: string;
+          p_previous: string | null;
+          p_removed: Json;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
+      sync_plaid_transactions: {
+        Args: {
+          p_connection: string;
+          p_cursor: string;
+          p_previous: string | null;
+          p_removed: Json;
+          p_rows: Json;
+        };
+        Returns: Json;
       };
     };
     Enums: {
