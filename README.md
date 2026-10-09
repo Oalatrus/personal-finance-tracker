@@ -41,4 +41,23 @@ Saved financial records live in Supabase and persist when the local server stops
 For later hosting, use a Next.js Node/serverless host with the same environment
 variables, set `SITE_URL` to its HTTPS address, and update Supabase Auth’s Site URL
 and callback allowlist. Choose email delivery and a database backup plan before
-using real financial data. No deployment or bank connection is configured.
+using real financial data. The hosted app uses the same Supabase records as local development.
+
+Plaid uses manual sync and a review queue at `/banks`. Set server-only
+`PLAID_CLIENT_ID`, `PLAID_SECRET` (Sandbox key), `PLAID_ENV=sandbox`, and
+`PLAID_TOKEN_ENCRYPTION_KEY` (64 hexadecimal characters; generate with
+`openssl rand -hex 32`). Keep the encryption key backed up and identical locally
+and on Vercel; replacing it makes saved bank tokens unreadable. Allow
+`http://localhost:3000/banks` and your hosted HTTPS `/banks` URL in Plaid’s
+Dashboard → Developers → API → Allowed redirect URIs. Never prefix these secrets
+with `NEXT_PUBLIC_` or commit them. Sandbox uses fictional data.
+
+For real banks, obtain Plaid’s free Trial approval first, then use its Production
+secret, `PLAID_ENV=production`, and `PLAID_FREE_TRIAL_APPROVED=true`. The Trial
+allows 10 total Production Items; disconnecting does not restore that allowance.
+No paid plan is required or enabled by this app. Map bank accounts to existing
+tracker accounts, sync, then review posted USD transactions. Bank corrections
+and removals require confirmation; pending transactions are excluded. Sync
+does not run in the background. Disconnect revokes bank access and keeps
+imported ledger entries. Manual/CSV duplicates are flagged by account, date,
+amount, and type; separate identical transactions need explicit confirmation.

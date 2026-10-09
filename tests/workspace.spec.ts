@@ -13,6 +13,7 @@ test('private routes require sign-in; authentication validation and missing-page
     '/transactions',
     '/budgets',
     '/import',
+    '/banks',
   ]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/auth\/login$/);
@@ -235,6 +236,7 @@ test('accounts, categories, transactions, budgets and CSV import retain private 
       '/transactions',
       '/budgets?month=2026-10',
       '/import',
+      '/banks',
     ]) {
       await page.goto(route);
       await expect(page.locator('main h1')).toBeVisible();

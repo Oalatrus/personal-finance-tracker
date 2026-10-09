@@ -162,6 +162,150 @@ export type Database = {
           },
         ];
       };
+      plaid_accounts: {
+        Row: {
+          account_id: string | null;
+          bank_account_id: string;
+          connection_id: string;
+          mask: string | null;
+          name: string;
+          user_id: string;
+        };
+        Insert: {
+          account_id?: string | null;
+          bank_account_id: string;
+          connection_id: string;
+          mask?: string | null;
+          name: string;
+          user_id?: string;
+        };
+        Update: {
+          account_id?: string | null;
+          bank_account_id?: string;
+          connection_id?: string;
+          mask?: string | null;
+          name?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'plaid_accounts_user_id_account_id_fkey';
+            columns: ['user_id', 'account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['user_id', 'id'];
+          },
+          {
+            foreignKeyName: 'plaid_accounts_user_id_connection_id_fkey';
+            columns: ['user_id', 'connection_id'];
+            isOneToOne: false;
+            referencedRelation: 'plaid_connections';
+            referencedColumns: ['user_id', 'id'];
+          },
+        ];
+      };
+      plaid_connections: {
+        Row: {
+          created_at: string;
+          cursor: string | null;
+          disconnected: boolean;
+          encrypted_token: string | null;
+          environment: string;
+          id: string;
+          institution: string;
+          item_id: string;
+          last_synced_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          cursor?: string | null;
+          disconnected?: boolean;
+          encrypted_token?: string | null;
+          environment: string;
+          id: string;
+          institution?: string;
+          item_id: string;
+          last_synced_at?: string | null;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          cursor?: string | null;
+          disconnected?: boolean;
+          encrypted_token?: string | null;
+          environment?: string;
+          id?: string;
+          institution?: string;
+          item_id?: string;
+          last_synced_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      plaid_records: {
+        Row: {
+          bank_account_id: string;
+          connection_id: string;
+          description: string;
+          ignored: boolean;
+          needs_review: boolean;
+          pending: boolean;
+          provider_id: string;
+          removed: boolean;
+          signed_cents: number;
+          transaction_date: string;
+          transaction_id: string | null;
+          user_id: string;
+          version: number;
+        };
+        Insert: {
+          bank_account_id: string;
+          connection_id: string;
+          description: string;
+          ignored?: boolean;
+          needs_review?: boolean;
+          pending: boolean;
+          provider_id: string;
+          removed?: boolean;
+          signed_cents: number;
+          transaction_date: string;
+          transaction_id?: string | null;
+          user_id?: string;
+          version?: number;
+        };
+        Update: {
+          bank_account_id?: string;
+          connection_id?: string;
+          description?: string;
+          ignored?: boolean;
+          needs_review?: boolean;
+          pending?: boolean;
+          provider_id?: string;
+          removed?: boolean;
+          signed_cents?: number;
+          transaction_date?: string;
+          transaction_id?: string | null;
+          user_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'plaid_records_user_id_connection_id_bank_account_id_fkey';
+            columns: ['user_id', 'connection_id', 'bank_account_id'];
+            isOneToOne: false;
+            referencedRelation: 'plaid_accounts';
+            referencedColumns: ['user_id', 'connection_id', 'bank_account_id'];
+          },
+          {
+            foreignKeyName: 'plaid_records_user_id_transaction_id_fkey';
+            columns: ['user_id', 'transaction_id'];
+            isOneToOne: false;
+            referencedRelation: 'transactions';
+            referencedColumns: ['user_id', 'id'];
+          },
+        ];
+      };
       transactions: {
         Row: {
           account_id: string;
@@ -249,6 +393,35 @@ export type Database = {
           p_account: string;
           p_allow_duplicates?: boolean;
           p_request: string;
+          p_rows: Json;
+        };
+        Returns: number;
+      };
+      map_plaid_account: {
+        Args: {
+          p_account: string;
+          p_bank_account: string;
+          p_connection: string;
+        };
+        Returns: undefined;
+      };
+      review_plaid_record: {
+        Args: {
+          p_allow_duplicate?: boolean;
+          p_category: string | null;
+          p_connection: string;
+          p_ignore?: boolean;
+          p_provider: string;
+          p_version: number;
+        };
+        Returns: undefined;
+      };
+      stage_plaid_sync: {
+        Args: {
+          p_connection: string;
+          p_cursor: string;
+          p_previous: string | null;
+          p_removed: Json;
           p_rows: Json;
         };
         Returns: number;

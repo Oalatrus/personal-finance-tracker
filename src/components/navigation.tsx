@@ -10,6 +10,7 @@ const links = [
   { href: '/categories', label: 'Categories', symbol: '▦' },
   { href: '/budgets', label: 'Budgets', symbol: '◉' },
   { href: '/import', label: 'Import CSV', symbol: '↥' },
+  { href: '/banks', label: 'Bank connections', symbol: '⇄' },
 ];
 
 export function Navigation() {
